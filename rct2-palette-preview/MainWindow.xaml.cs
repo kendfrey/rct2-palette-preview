@@ -88,15 +88,15 @@ namespace rct2_palette_preview
 				}
 				for (int j = 0; j < 3; j++)
 				{
-					framePalette[j + 240] = palette[j + 220];
+					framePalette[j + 240] = palette[j + 230];
 				}
 				for (int j = 0; j < 5; j++)
 				{
-					framePalette[j + 230] = palette[(j * 3 - i + 15) % 15 + 223];
+					framePalette[j + 230] = palette[(j * 3 - i + 15) % 15 + 236];
 				}
 				for (int j = 0; j < 5; j++)
 				{
-					framePalette[j + 235] = palette[(j * 3 - i + 15) % 15 + 238];
+					framePalette[j + 235] = palette[(j * 3 - i + 15) % 15 + 281];
 				}
 				framePalette[255] = Colors.White;
 
@@ -163,7 +163,8 @@ namespace rct2_palette_preview
 
 			int endOfStringTable = decodedBytesList.IndexOf(0xFF) + 1;
 			int imageDirectoryLength = BitConverter.ToInt32(decodedBytes, endOfStringTable);
-			LoadPalette(decodedBytes.AsSpan(endOfStringTable + 8 + imageDirectoryLength * 16));
+			var palette = GetColors(decodedBytes.AsSpan(endOfStringTable + 8 + imageDirectoryLength * 16));
+			LoadPalette(palette);
 		}
 
 		private void LoadBitmapPalette(string fileName)
@@ -172,42 +173,28 @@ namespace rct2_palette_preview
 			LoadPalette(GetColorData(img));
 		}
 
-		private void LoadPalette(Span<byte> colorData)
+		private void LoadPalette(Color[] palette)
 		{
-			var palette = new List<Color>(253);
-
-			for (int i = 0; i < 220; i++)
-			{
-				palette.Add(ReadColor(colorData, i));
-			}
-			for (int i = 0; i < 3; i++)
-			{
-				palette.Add(ReadColor(colorData, i + 230));
-			}
-			for (int i = 0; i < 15; i++)
-			{
-				palette.Add(ReadColor(colorData, i + 236));
-			}
-			for (int i = 0; i < 15; i++)
-			{
-				palette.Add(ReadColor(colorData, i + 281));
-			}
-
-			this.palette = palette.ToArray();
+			this.palette = palette;
 			LoadImage();
 		}
 
-		private byte[] GetColorData(BitmapImage img)
+		private Color[] GetColorData(BitmapImage img)
 		{
 			var formatConvertedImg = new FormatConvertedBitmap(img, PixelFormats.Bgr24, null, 0);
 			var colorData = new byte[formatConvertedImg.PixelWidth * formatConvertedImg.PixelHeight * 3];
 			formatConvertedImg.CopyPixels(colorData, formatConvertedImg.PixelWidth * 3, 0);
-			return colorData;
+			return GetColors(colorData);
 		}
 
-		private Color ReadColor(Span<byte> colorData, int startIndex)
+		private Color[] GetColors(Span<byte> colorData)
 		{
-			return Color.FromRgb(colorData[startIndex * 3 + 2], colorData[startIndex * 3 + 1], colorData[startIndex * 3]);
+			var colors = new Color[colorData.Length / 3];
+			for (int i = 0; i < colors.Length; i++)
+			{
+				colors[i] = Color.FromRgb(colorData[i * 3 + 2], colorData[i * 3 + 1], colorData[i * 3]);
+			}
+			return colors;
 		}
 
 		private void AnimationTimer_Tick(object sender, EventArgs e)

@@ -111,7 +111,7 @@ namespace rct2_palette_preview
 			try
 			{
 				var dlg = new OpenFileDialog();
-				dlg.Filter = "DAT Files|*.dat|Images|*.png;*.bmp|All Files|*.*";
+				dlg.Filter = "Images|*.png;*.bmp|DAT Files|*.dat|All Files|*.*";
 				if (dlg.ShowDialog() != true)
 					return;
 
@@ -119,6 +119,10 @@ namespace rct2_palette_preview
 				{
 					case ".dat":
 						LoadDatPalette(dlg.FileName);
+						break;
+					case ".png":
+					case ".bmp":
+						LoadBitmapPalette(dlg.FileName);
 						break;
 					default:
 						MessageBox.Show($"The file extension {Path.GetExtension(dlg.FileName)} is not supported.", "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -159,8 +163,17 @@ namespace rct2_palette_preview
 
 			int endOfStringTable = decodedBytesList.IndexOf(0xFF) + 1;
 			int imageDirectoryLength = BitConverter.ToInt32(decodedBytes, endOfStringTable);
-			var colorData = decodedBytes.AsSpan(endOfStringTable + 8 + imageDirectoryLength * 16);
+			LoadPalette(decodedBytes.AsSpan(endOfStringTable + 8 + imageDirectoryLength * 16));
+		}
 
+		private void LoadBitmapPalette(string fileName)
+		{
+			var img = new BitmapImage(new Uri(fileName));
+			LoadPalette(GetColorData(img));
+		}
+
+		private void LoadPalette(Span<byte> colorData)
+		{
 			var palette = new List<Color>(253);
 
 			for (int i = 0; i < 220; i++)
@@ -182,6 +195,14 @@ namespace rct2_palette_preview
 
 			this.palette = palette.ToArray();
 			LoadImage();
+		}
+
+		private byte[] GetColorData(BitmapImage img)
+		{
+			var formatConvertedImg = new FormatConvertedBitmap(img, PixelFormats.Bgr24, null, 0);
+			var colorData = new byte[formatConvertedImg.PixelWidth * formatConvertedImg.PixelHeight * 3];
+			formatConvertedImg.CopyPixels(colorData, formatConvertedImg.PixelWidth * 3, 0);
+			return colorData;
 		}
 
 		private Color ReadColor(Span<byte> colorData, int startIndex)

@@ -47,10 +47,11 @@ namespace rct2_palette_preview
 					return;
 
 				var img = new BitmapImage(new Uri(dlg.FileName));
-				if (img.Format == PixelFormats.Indexed8)
+				if (img.Format == PixelFormats.Indexed8
+					&& MessageBox.Show("This image already has a palette. Would you like to use that palette to load the image? If you choose No, the default palette detection method will be used.", "Use Existing Palette?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
 					Load8BitImage(img);
 				else
-					MessageBox.Show($"This image uses the format {img.Format} which is not supported.", "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Error);
+					LoadFullColorImage(img);
 			}
 			catch (Exception ex)
 			{
@@ -62,6 +63,81 @@ namespace rct2_palette_preview
 		{
 			var pixels = new byte[img.PixelWidth * img.PixelHeight];
 			img.CopyPixels(pixels, img.PixelWidth, 0);
+
+			this.pixels = pixels;
+			this.width = img.PixelWidth;
+			this.height = img.PixelHeight;
+			this.dpiX = img.DpiX;
+			this.dpiY = img.DpiY;
+			LoadImage();
+		}
+
+		private void LoadFullColorImage(BitmapImage img)
+		{
+			var colors = GetColorData(img);
+			int paletteIndex;
+			for (paletteIndex = Array.IndexOf(colors, Colors.White, 255); paletteIndex >= 0; paletteIndex = Array.IndexOf(colors, Colors.White, paletteIndex + 1))
+			{
+				var foundPalette = true;
+				for (int i = 0; i < 9; i++)
+				{
+					if (colors[paletteIndex - 254 + i] != Colors.Black || colors[paletteIndex - 9 + i] != Colors.Black)
+					{
+						foundPalette = false;
+						break;
+					}
+				}
+
+				if (foundPalette)
+				{
+					paletteIndex = paletteIndex - 255;
+					break;
+				}
+			}
+
+			if (paletteIndex < 0)
+			{
+				MessageBox.Show("The palette screenshot pattern is not in this image. Please include the Palette Screenshot Pattern window in the screenshot. This window is made available by installing the palettescreenshotpattern OpenRCT2 plugin included with this program.", "Palette Not Detected", MessageBoxButton.OK, MessageBoxImage.Error);
+				return;
+			}
+
+			var paletteMap = new Dictionary<Color, byte>();
+			bool showPaletteWarning = false;
+			for (int i = 0; i < 256; i++)
+			{
+				var color = colors[paletteIndex + i];
+				if (paletteMap.ContainsKey(color))
+				{
+					if (!InPaletteRange(i))
+						continue;
+					else if (!InPaletteRange(paletteMap[color]))
+						paletteMap[color] = (byte)i;
+					else
+						showPaletteWarning = true;
+				}
+				else
+				{
+					paletteMap.Add(color, (byte)i);
+				}
+
+				static bool InPaletteRange(int i) => i >= 10 && i < 246;
+			}
+			// TODO: make a palette that will always avoid this
+			if (showPaletteWarning)
+				MessageBox.Show("There are some duplicate colors in this image's palette. These colors may be rendered incorrectly.", "Duplicate Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+			byte[] pixels = new byte[colors.Length];
+			bool showPixelWarning = false;
+			for (int i = 0; i < pixels.Length; i++)
+			{
+				if (!paletteMap.TryGetValue(colors[i], out pixels[i]))
+				{
+					pixels[i] = 1;
+					showPixelWarning = true;
+				}
+			}
+			if (showPixelWarning)
+				MessageBox.Show("This image has some colors that are not in its palette. These colors will not be rendered.", "Missing Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
 
 			this.pixels = pixels;
 			this.width = img.PixelWidth;

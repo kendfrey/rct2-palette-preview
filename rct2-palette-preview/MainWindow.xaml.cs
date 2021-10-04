@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -190,7 +191,7 @@ namespace rct2_palette_preview
 			try
 			{
 				var dlg = new OpenFileDialog();
-				dlg.Filter = "Images|*.png;*.bmp|DAT Files|*.dat|All Files|*.*";
+				dlg.Filter = "Images|*.png;*.bmp|DAT Files|*.dat|JSON Files|*.json|All Files|*.*";
 				if (dlg.ShowDialog() != true)
 					return;
 
@@ -202,6 +203,9 @@ namespace rct2_palette_preview
 					case ".png":
 					case ".bmp":
 						LoadBitmapPalette(dlg.FileName);
+						break;
+					case ".json":
+						LoadJsonPalette(dlg.FileName);
 						break;
 					default:
 						MessageBox.Show($"The file extension {Path.GetExtension(dlg.FileName)} is not supported.", "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -252,6 +256,14 @@ namespace rct2_palette_preview
 		{
 			var img = new BitmapImage(new Uri(fileName));
 			LoadPalette(GetColorData(img));
+		}
+
+		private void LoadJsonPalette(string fileName)
+		{
+			var palettes = JsonConvert.DeserializeObject<JObject>(File.ReadAllText(fileName))["properties"]["palettes"];
+			var palette = new string[] { "general", "waves-0", "waves-1", "waves-2", "sparkles-0", "sparkles-1", "sparkles-2" }
+				.SelectMany(s => palettes[s]["colours"].Select(c => (Color)ColorConverter.ConvertFromString(c.Value<string>()))).ToArray();
+			LoadPalette(palette);
 		}
 
 		private void LoadPalette(Color[] palette)

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -52,6 +53,8 @@ namespace rct2_palette_preview
 					Load8BitImage(img);
 				else
 					LoadFullColorImage(img);
+
+				ImageName.Content = dlg.FileName;
 			}
 			catch (Exception ex)
 			{
@@ -202,8 +205,10 @@ namespace rct2_palette_preview
 						break;
 					default:
 						MessageBox.Show($"The file extension {Path.GetExtension(dlg.FileName)} is not supported.", "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Error);
-						break;
+						return;
 				}
+
+				PaletteName.Content = dlg.FileName;
 			}
 			catch (Exception ex)
 			{
@@ -253,6 +258,47 @@ namespace rct2_palette_preview
 		{
 			this.palette = palette;
 			LoadImage();
+		}
+
+		private void SaveJsonPalette_Click(object sender, RoutedEventArgs e)
+		{
+			try
+			{
+				if (palette == null)
+					return;
+
+				var dlg = new SaveFileDialog();
+				dlg.Filter = "JSON files|*.json";
+				if (dlg.ShowDialog() != true)
+					return;
+
+				var paletteStrings = palette.Select(c => "#" + c.ToString().Substring(3)).ToArray();
+
+				var id = Path.GetFileNameWithoutExtension(dlg.FileName);
+				JObject json = new JObject();
+				json.Add("id", id);
+				json.Add("authors", new JArray("Unknown"));
+				json.Add("version", "1.0");
+				json.Add("originalId", id);
+				json.Add("sourceGame", "custom");
+				json.Add("objectType", "water");
+				var palettes = new JObject();
+				palettes.Add("general", new JObject() { { "index", 10 }, { "colours", new JArray(paletteStrings.AsSpan(0, 236).ToArray()) } });
+				palettes.Add("waves-0", new JObject() { { "index", 16 }, { "colours", new JArray(paletteStrings.AsSpan(236, 15).ToArray()) } });
+				palettes.Add("waves-1", new JObject() { { "index", 32 }, { "colours", new JArray(paletteStrings.AsSpan(251, 15).ToArray()) } });
+				palettes.Add("waves-2", new JObject() { { "index", 48 }, { "colours", new JArray(paletteStrings.AsSpan(266, 15).ToArray()) } });
+				palettes.Add("sparkles-0", new JObject() { { "index", 80 }, { "colours", new JArray(paletteStrings.AsSpan(281, 15).ToArray()) } });
+				palettes.Add("sparkles-1", new JObject() { { "index", 96 }, { "colours", new JArray(paletteStrings.AsSpan(296, 15).ToArray()) } });
+				palettes.Add("sparkles-2", new JObject() { { "index", 112 }, { "colours", new JArray(paletteStrings.AsSpan(311, 15).ToArray()) } });
+				json.Add("properties", new JObject() { { "allowDucks", true }, { "palettes", palettes } });
+				json.Add("strings", new JObject() { { "name", new JObject() { { "en-GB", id } } } });
+
+				File.WriteAllText(dlg.FileName, json.ToString());
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
 		}
 
 		private Color[] GetColorData(BitmapImage img)

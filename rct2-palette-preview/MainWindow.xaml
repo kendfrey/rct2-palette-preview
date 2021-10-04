@@ -6,13 +6,33 @@
         xmlns:local="clr-namespace:rct2_palette_preview"
         mc:Ignorable="d"
         Title="RCT2 Palette Preview" Height="450" Width="800">
-	<DockPanel>
-		<StackPanel Orientation="Horizontal" DockPanel.Dock="Top">
-			<Button Width="100" Click="OpenImage_Click">Open Image</Button>
-			<Button Width="100" Click="OpenPalette_Click">Open Palette</Button>
-		</StackPanel>
-		<ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="30" />
+			<RowDefinition Height="30" />
+			<RowDefinition Height="30" />
+			<RowDefinition Height="*" />
+		</Grid.RowDefinitions>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="140" />
+			<ColumnDefinition Width="*" />
+		</Grid.ColumnDefinitions>
+		<Button Grid.Row="0" Grid.Column="0" Click="OpenImage_Click">Open Image</Button>
+		<Label x:Name="ImageName" Grid.Row="0" Grid.Column="1"></Label>
+		<Button Grid.Row="1" Grid.Column="0" Click="OpenPalette_Click">Open Palette</Button>
+		<Label x:Name="PaletteName" Grid.Row="1" Grid.Column="1"></Label>
+		<Button Grid.Row="2" Grid.Column="0" Click="SaveJsonPalette_Click">Save Palette as JSON</Button>
+		<ScrollViewer Grid.Row="3" Grid.ColumnSpan="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
 			<Image x:Name="PreviewImage" HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
 		</ScrollViewer>
-	</DockPanel>
+	</Grid>
+	<Window.Resources>
+		<Style TargetType="Button">
+			<Setter Property="Height" Value="20" />
+			<Setter Property="Margin" Value="5,0,0,0" />
+		</Style>
+		<Style TargetType="Label">
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+	</Window.Resources>
 </Window>

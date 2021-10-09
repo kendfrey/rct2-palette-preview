@@ -12,6 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="liminal.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="palettescreenshotpattern.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

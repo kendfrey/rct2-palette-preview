@@ -101,7 +101,8 @@ namespace rct2_palette_preview
 
 			if (paletteIndex < 0)
 			{
-				MessageBox.Show("The palette screenshot pattern is not in this image. Please include the Palette Screenshot Pattern window in the screenshot. This window is made available by installing the palettescreenshotpattern OpenRCT2 plugin included with this program.", "Palette Not Detected", MessageBoxButton.OK, MessageBoxImage.Error);
+				MessageBox.Show("The Palette Screenshot Pattern is not in this image.\r\n\r\nUse the palettescreenshotpattern.js OpenRCT2 plugin included with this program to avoid this message.", "Palette Not Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+				// TODO: load palette manually
 				return;
 			}
 
@@ -124,11 +125,11 @@ namespace rct2_palette_preview
 					paletteMap.Add(color, (byte)i);
 				}
 
-				static bool InPaletteRange(int i) => i >= 10 && i < 246;
+				static bool InPaletteRange(int i) => i >= 10 && i < 243;
 			}
-			// TODO: make a palette that will always avoid this
+			
 			if (showPaletteWarning)
-				MessageBox.Show("There are some duplicate colors in this image's palette. These colors may be rendered incorrectly.", "Duplicate Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+				MessageBox.Show("There are some duplicate colors in this image's palette. These colors may be rendered incorrectly.\r\n\r\nUse the liminal.json OpenRCT2 palette included with this program to avoid this message.", "Duplicate Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
 
 			byte[] pixels = new byte[colors.Length];
 			bool showPixelWarning = false;

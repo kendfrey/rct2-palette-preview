@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -17,6 +18,9 @@ namespace rct2_palette_preview
 	/// </summary>
 	public partial class MainWindow : Window
 	{
+		public static RoutedUICommand OpenPalette = new();
+		public static RoutedUICommand SavePalette = new();
+
 		DispatcherTimer animationTimer;
 		BitmapSource[] animationFrames;
 		int animationFrame;
@@ -39,7 +43,7 @@ namespace rct2_palette_preview
 			animationTimer.Start();
 		}
 
-		private void OpenImage_Click(object sender, RoutedEventArgs e)
+		private void OpenImage_Executed(object sender, ExecutedRoutedEventArgs e)
 		{
 			try
 			{
@@ -187,7 +191,7 @@ namespace rct2_palette_preview
 			this.animationFrames = animationFrames;
 		}
 
-		private void OpenPalette_Click(object sender, RoutedEventArgs e)
+		private void OpenPalette_Executed(object sender, ExecutedRoutedEventArgs e)
 		{
 			try
 			{
@@ -273,7 +277,7 @@ namespace rct2_palette_preview
 			LoadImage();
 		}
 
-		private void SaveJsonPalette_Click(object sender, RoutedEventArgs e)
+		private void SavePalette_Executed(object sender, ExecutedRoutedEventArgs e)
 		{
 			try
 			{

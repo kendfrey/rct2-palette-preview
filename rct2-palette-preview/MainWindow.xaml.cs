@@ -53,13 +53,19 @@ namespace rct2_palette_preview
 					return;
 
 				var img = new BitmapImage(new Uri(dlg.FileName));
+				(byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? result;
 				if (img.Format == PixelFormats.Indexed8
 					&& MessageBox.Show("This image already has a palette. Would you like to use that palette to load the image? If you choose No, the default palette detection method will be used.", "Use Existing Palette?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-					Load8BitImage(img);
+					result = Load8BitImage(img);
 				else
-					LoadFullColorImage(img);
+					result = LoadFullColorImage(img);
 
-				ImageName.Content = dlg.FileName;
+				if (result != null)
+				{
+					(pixels, width, height, dpiX, dpiY) = result.Value;
+					ImageName.Content = dlg.FileName;
+					RenderImage();
+				}
 			}
 			catch (Exception ex)
 			{
@@ -67,20 +73,15 @@ namespace rct2_palette_preview
 			}
 		}
 
-		private void Load8BitImage(BitmapImage img)
+		private (byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? Load8BitImage(BitmapImage img)
 		{
 			var pixels = new byte[img.PixelWidth * img.PixelHeight];
 			img.CopyPixels(pixels, img.PixelWidth, 0);
 
-			this.pixels = pixels;
-			this.width = img.PixelWidth;
-			this.height = img.PixelHeight;
-			this.dpiX = img.DpiX;
-			this.dpiY = img.DpiY;
-			LoadImage();
+			return (pixels, img.PixelWidth, img.PixelHeight, img.DpiX, img.DpiX);
 		}
 
-		private void LoadFullColorImage(BitmapImage img)
+		private (byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? LoadFullColorImage(BitmapImage img)
 		{
 			var colors = GetColorData(img);
 			int paletteIndex;
@@ -103,18 +104,110 @@ namespace rct2_palette_preview
 				}
 			}
 
+			IEnumerable<(Dictionary<Color, byte> PaletteMap, bool HasDuplicates)> paletteMapsToTry;
 			if (paletteIndex < 0)
 			{
-				MessageBox.Show("The Palette Screenshot Pattern is not in this image.\r\n\r\nUse the palettescreenshotpattern.js OpenRCT2 plugin included with this program to avoid this message.", "Palette Not Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
-				// TODO: load palette manually
-				return;
+				MessageBox.Show("The Palette Screenshot Pattern is not in this image. Please select a palette to load the image with.\r\n\r\nUse the palettescreenshotpattern.js OpenRCT2 plugin included with this program to avoid this message.", "Palette Not Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+				var result = LoadPalette();
+				if (result == null)
+					return null;
+
+				// TODO: support rainy weather
+				paletteMapsToTry = Enumerable.Range(0, 3).Select(i => MakePaletteMap(MakeFramePalette(result.Value.Palette, i), 0));
+			}
+			else
+			{
+				paletteMapsToTry = new[] { MakePaletteMap(colors, paletteIndex) };
 			}
 
-			var paletteMap = new Dictionary<Color, byte>();
+			int bestScore = int.MaxValue; // Lower is better
+			byte[] bestPixels = null;
 			bool showPaletteWarning = false;
+			foreach (var paletteMap in paletteMapsToTry)
+			{
+				byte[] pixels = new byte[colors.Length];
+				int score = 0;
+				for (int i = 0; i < pixels.Length; i++)
+				{
+					if (!paletteMap.PaletteMap.TryGetValue(colors[i], out pixels[i]))
+					{
+						pixels[i] = 1;
+						score++;
+					}
+				}
+
+				if (score < bestScore)
+				{
+					bestScore = score;
+					bestPixels = pixels;
+					showPaletteWarning = paletteMap.HasDuplicates;
+
+					if (score == 0)
+						break;
+				}
+			}
+			
+			if (showPaletteWarning)
+				MessageBox.Show("There are some duplicate colors in this image's palette. These colors may be rendered incorrectly.\r\n\r\nUse the liminal.json OpenRCT2 palette included with this program to avoid this message.", "Duplicate Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+			if (bestScore != 0)
+				MessageBox.Show("This image has some colors that are not in its palette. These colors will not be rendered.", "Missing Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+			return (bestPixels, img.PixelWidth, img.PixelHeight, img.DpiX, img.DpiX);
+		}
+
+		private void RenderImage()
+		{
+			if (pixels == null || palette == null)
+				return;
+
+			var animationFrames = new BitmapSource[15];
+			for (int i = 0; i < 15; i++)
+			{
+				animationFrames[i] = BitmapSource.Create(width, height, dpiX, dpiY, PixelFormats.Indexed8, new BitmapPalette(MakeFramePalette(palette, i)), pixels, width);
+			}
+
+			this.animationFrames = animationFrames;
+		}
+
+		private Color[] MakeFramePalette(Color[] palette, int frame)
+		{
+			var framePalette = new Color[256];
+			Array.Fill(framePalette, Colors.Black);
+
+			for (int i = 0; i < 220; i++)
+			{
+				framePalette[i + 10] = palette[i];
+			}
+			for (int i = 0; i < 3; i++)
+			{
+				framePalette[i + 240] = palette[i + 230];
+			}
+			for (int i = 0; i < 5; i++)
+			{
+				framePalette[i + 230] = palette[(i * 3 - frame + 15) % 15 + 236];
+			}
+			for (int i = 0; i < 5; i++)
+			{
+				framePalette[i + 235] = palette[(i * 3 - frame + 15) % 15 + 281];
+			}
+			for (int i = 0; i < 3; i++)
+			{
+				framePalette[i + 243] = Color.FromRgb(47, 47, 47);
+			}
+			framePalette[243 + frame % 3] = Color.FromRgb(87, 71, 47);
+			framePalette[255] = Colors.White;
+			return framePalette;
+		}
+
+		private (Dictionary<Color, byte> PaletteMap, bool HasDuplicates) MakePaletteMap(Color[] palette, int paletteIndex)
+		{
+			var paletteMap = new Dictionary<Color, byte>();
+			bool hasDuplicates = false;
 			for (int i = 0; i < 256; i++)
 			{
-				var color = colors[paletteIndex + i];
+				var color = palette[paletteIndex + i];
 				if (paletteMap.ContainsKey(color))
 				{
 					if (!InPaletteRange(i))
@@ -122,7 +215,7 @@ namespace rct2_palette_preview
 					else if (!InPaletteRange(paletteMap[color]))
 						paletteMap[color] = (byte)i;
 					else
-						showPaletteWarning = true;
+						hasDuplicates = true;
 				}
 				else
 				{
@@ -131,93 +224,20 @@ namespace rct2_palette_preview
 
 				static bool InPaletteRange(int i) => i >= 10 && i < 243;
 			}
-			
-			if (showPaletteWarning)
-				MessageBox.Show("There are some duplicate colors in this image's palette. These colors may be rendered incorrectly.\r\n\r\nUse the liminal.json OpenRCT2 palette included with this program to avoid this message.", "Duplicate Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
-
-			byte[] pixels = new byte[colors.Length];
-			bool showPixelWarning = false;
-			for (int i = 0; i < pixels.Length; i++)
-			{
-				if (!paletteMap.TryGetValue(colors[i], out pixels[i]))
-				{
-					pixels[i] = 1;
-					showPixelWarning = true;
-				}
-			}
-			if (showPixelWarning)
-				MessageBox.Show("This image has some colors that are not in its palette. These colors will not be rendered.", "Missing Colors Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
-
-			this.pixels = pixels;
-			this.width = img.PixelWidth;
-			this.height = img.PixelHeight;
-			this.dpiX = img.DpiX;
-			this.dpiY = img.DpiY;
-			LoadImage();
-		}
-
-		private void LoadImage()
-		{
-			if (pixels == null || palette == null)
-				return;
-
-			var animationFrames = new BitmapSource[15];
-			for (int i = 0; i < 15; i++)
-			{
-				var framePalette = new Color[256];
-				Array.Fill(framePalette, Colors.Black);
-
-				for (int j = 0; j < 220; j++)
-				{
-					framePalette[j + 10] = palette[j];
-				}
-				for (int j = 0; j < 3; j++)
-				{
-					framePalette[j + 240] = palette[j + 230];
-				}
-				for (int j = 0; j < 5; j++)
-				{
-					framePalette[j + 230] = palette[(j * 3 - i + 15) % 15 + 236];
-				}
-				for (int j = 0; j < 5; j++)
-				{
-					framePalette[j + 235] = palette[(j * 3 - i + 15) % 15 + 281];
-				}
-				framePalette[255] = Colors.White;
-
-				animationFrames[i] = BitmapSource.Create(width, height, dpiX, dpiY, PixelFormats.Indexed8, new BitmapPalette(framePalette), pixels, width);
-			}
-
-			this.animationFrames = animationFrames;
+			return (paletteMap, hasDuplicates);
 		}
 
 		private void OpenPalette_Executed(object sender, ExecutedRoutedEventArgs e)
 		{
 			try
 			{
-				var dlg = new OpenFileDialog();
-				dlg.Filter = "Images|*.png;*.bmp|DAT Files|*.dat|JSON Files|*.json|All Files|*.*";
-				if (dlg.ShowDialog() != true)
-					return;
-
-				switch (Path.GetExtension(dlg.FileName).ToLower())
+				var result = LoadPalette();
+				if (result != null)
 				{
-					case ".dat":
-						LoadDatPalette(dlg.FileName);
-						break;
-					case ".png":
-					case ".bmp":
-						LoadBitmapPalette(dlg.FileName);
-						break;
-					case ".json":
-						LoadJsonPalette(dlg.FileName);
-						break;
-					default:
-						MessageBox.Show($"The file extension {Path.GetExtension(dlg.FileName)} is not supported.", "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Error);
-						return;
+					palette = result.Value.Palette;
+					PaletteName.Content = result.Value.Name;
+					RenderImage();
 				}
-
-				PaletteName.Content = dlg.FileName;
 			}
 			catch (Exception ex)
 			{
@@ -225,13 +245,35 @@ namespace rct2_palette_preview
 			}
 		}
 
-		private void LoadDatPalette(string fileName)
+		private (Color[] Palette, string Name)? LoadPalette()
+		{
+			var dlg = new OpenFileDialog();
+			dlg.Filter = "Images|*.png;*.bmp|DAT Files|*.dat|JSON Files|*.json|All Files|*.*";
+			if (dlg.ShowDialog() != true)
+				return null;
+
+			switch (Path.GetExtension(dlg.FileName).ToLower())
+			{
+				case ".dat":
+					return (LoadDatPalette(dlg.FileName), dlg.FileName);
+				case ".png":
+				case ".bmp":
+					return (LoadBitmapPalette(dlg.FileName), dlg.FileName);
+				case ".json":
+					return (LoadJsonPalette(dlg.FileName), dlg.FileName);
+				default:
+					MessageBox.Show($"The file extension {Path.GetExtension(dlg.FileName)} is not supported.", "Unsupported Format", MessageBoxButton.OK, MessageBoxImage.Error);
+					return null;
+			}
+		}
+
+		private Color[] LoadDatPalette(string fileName)
 		{
 			var file = File.ReadAllBytes(fileName);
 			if (file[16] != 0x01)
 			{
 				MessageBox.Show($"This DAT file uses the encoding {file[16]} which is not supported.", "Unsupported Encoding", MessageBoxButton.OK, MessageBoxImage.Error);
-				return;
+				return null;
 			}
 
 			var block = file.AsSpan(21, BitConverter.ToInt32(file, 17));
@@ -253,28 +295,20 @@ namespace rct2_palette_preview
 
 			int endOfStringTable = decodedBytesList.IndexOf(0xFF) + 1;
 			int imageDirectoryLength = BitConverter.ToInt32(decodedBytes, endOfStringTable);
-			var palette = GetColors(decodedBytes.AsSpan(endOfStringTable + 8 + imageDirectoryLength * 16));
-			LoadPalette(palette);
+			return GetColors(decodedBytes.AsSpan(endOfStringTable + 8 + imageDirectoryLength * 16));
 		}
 
-		private void LoadBitmapPalette(string fileName)
+		private Color[] LoadBitmapPalette(string fileName)
 		{
 			var img = new BitmapImage(new Uri(fileName));
-			LoadPalette(GetColorData(img));
+			return GetColorData(img);
 		}
 
-		private void LoadJsonPalette(string fileName)
+		private Color[] LoadJsonPalette(string fileName)
 		{
 			var palettes = JsonConvert.DeserializeObject<JObject>(File.ReadAllText(fileName))["properties"]["palettes"];
-			var palette = new string[] { "general", "waves-0", "waves-1", "waves-2", "sparkles-0", "sparkles-1", "sparkles-2" }
+			return new string[] { "general", "waves-0", "waves-1", "waves-2", "sparkles-0", "sparkles-1", "sparkles-2" }
 				.SelectMany(s => palettes[s]["colours"].Select(c => (Color)ColorConverter.ConvertFromString(c.Value<string>()))).ToArray();
-			LoadPalette(palette);
-		}
-
-		private void LoadPalette(Color[] palette)
-		{
-			this.palette = palette;
-			LoadImage();
 		}
 
 		private void SavePalette_Executed(object sender, ExecutedRoutedEventArgs e)

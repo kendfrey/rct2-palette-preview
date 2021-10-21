@@ -52,20 +52,7 @@ namespace rct2_palette_preview
 				if (dlg.ShowDialog() != true)
 					return;
 
-				var img = new BitmapImage(new Uri(dlg.FileName));
-				(byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? result;
-				if (img.Format == PixelFormats.Indexed8
-					&& MessageBox.Show("This image already has a palette. Would you like to use that palette to load the image? If you choose No, the default palette detection method will be used.", "Use Existing Palette?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-					result = Load8BitImage(img);
-				else
-					result = LoadFullColorImage(img);
-
-				if (result != null)
-				{
-					(pixels, width, height, dpiX, dpiY) = result.Value;
-					ImageName.Content = dlg.FileName;
-					RenderImage();
-				}
+				OpenImage(new BitmapImage(new Uri(dlg.FileName)), dlg.FileName);
 			}
 			catch (Exception ex)
 			{
@@ -73,7 +60,42 @@ namespace rct2_palette_preview
 			}
 		}
 
-		private (byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? Load8BitImage(BitmapImage img)
+		private void PasteImage_Executed(object sender, ExecutedRoutedEventArgs e)
+		{
+			try
+			{
+				if (Clipboard.GetImage() is BitmapSource img)
+					OpenImage(img, "<pasted image>");
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
+		}
+
+		private void PasteImage_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+		{
+			e.CanExecute = Clipboard.ContainsImage();
+		}
+
+		private void OpenImage(BitmapSource img, string name)
+		{
+			(byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? result;
+			if (img.Format == PixelFormats.Indexed8
+				&& MessageBox.Show("This image already has a palette. Would you like to use that palette to load the image? If you choose No, the default palette detection method will be used.", "Use Existing Palette?", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+				result = Load8BitImage(img);
+			else
+				result = LoadFullColorImage(img);
+
+			if (result != null)
+			{
+				(pixels, width, height, dpiX, dpiY) = result.Value;
+				ImageName.Content = name;
+				RenderImage();
+			}
+		}
+
+		private (byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? Load8BitImage(BitmapSource img)
 		{
 			var pixels = new byte[img.PixelWidth * img.PixelHeight];
 			img.CopyPixels(pixels, img.PixelWidth, 0);
@@ -81,7 +103,7 @@ namespace rct2_palette_preview
 			return (pixels, img.PixelWidth, img.PixelHeight, img.DpiX, img.DpiX);
 		}
 
-		private (byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? LoadFullColorImage(BitmapImage img)
+		private (byte[] Pixels, int Width, int Height, double DpiX, double DpiY)? LoadFullColorImage(BitmapSource img)
 		{
 			var colors = GetColorData(img);
 			int paletteIndex;
@@ -227,6 +249,51 @@ namespace rct2_palette_preview
 			return (paletteMap, hasDuplicates);
 		}
 
+		private void SaveImage_Executed(object sender, ExecutedRoutedEventArgs e)
+		{
+			try
+			{
+				if (animationFrames == null)
+					return;
+
+				var dlg = new SaveFileDialog();
+				dlg.Filter = "Images|*.png";
+				if (dlg.ShowDialog() != true)
+					return;
+
+				using (var file = File.OpenWrite(dlg.FileName))
+				{
+					var encoder = new PngBitmapEncoder();
+					encoder.Frames.Add(BitmapFrame.Create(animationFrames[0]));
+					encoder.Save(file);
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
+		}
+
+		private void SaveImage_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+		{
+			e.CanExecute = animationFrames != null;
+		}
+
+		private void CopyImage_Executed(object sender, ExecutedRoutedEventArgs e)
+		{
+			try
+			{
+				if (animationFrames == null)
+					return;
+
+				Clipboard.SetImage(animationFrames[0]);
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
+		}
+
 		private void OpenPalette_Executed(object sender, ExecutedRoutedEventArgs e)
 		{
 			try
@@ -352,7 +419,12 @@ namespace rct2_palette_preview
 			}
 		}
 
-		private Color[] GetColorData(BitmapImage img)
+		private void SavePalette_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+		{
+			e.CanExecute = palette != null;
+		}
+
+		private Color[] GetColorData(BitmapSource img)
 		{
 			var formatConvertedImg = new FormatConvertedBitmap(img, PixelFormats.Bgr24, null, 0);
 			var colorData = new byte[formatConvertedImg.PixelWidth * formatConvertedImg.PixelHeight * 3];

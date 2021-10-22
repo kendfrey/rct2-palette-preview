@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -24,6 +25,8 @@ namespace rct2_palette_preview
 		DispatcherTimer animationTimer;
 		BitmapSource[] animationFrames;
 		int animationFrame;
+
+		int animationStyle;
 
 		byte[] pixels;
 		int width;
@@ -135,8 +138,7 @@ namespace rct2_palette_preview
 				if (result == null)
 					return null;
 
-				// TODO: support rainy weather
-				paletteMapsToTry = Enumerable.Range(0, 3).Select(i => MakePaletteMap(MakeFramePalette(result.Value.Palette, i), 0));
+				paletteMapsToTry = Enumerable.Range(0, 3).SelectMany(i => Enumerable.Range(0, 3).Select(j => MakePaletteMap(MakeFramePalette(result.Value.Palette, i, j), 0)));
 			}
 			else
 			{
@@ -187,13 +189,16 @@ namespace rct2_palette_preview
 			var animationFrames = new BitmapSource[15];
 			for (int i = 0; i < 15; i++)
 			{
-				animationFrames[i] = BitmapSource.Create(width, height, dpiX, dpiY, PixelFormats.Indexed8, new BitmapPalette(MakeFramePalette(palette, i)), pixels, width);
+				animationFrames[i] = BitmapSource.Create(width, height, dpiX, dpiY, PixelFormats.Indexed8, new BitmapPalette(MakeFramePalette(palette, i, animationStyle)), pixels, width);
 			}
 
 			this.animationFrames = animationFrames;
 		}
 
-		private Color[] MakeFramePalette(Color[] palette, int frame)
+		static readonly Color[] chainColor1 = new[] { Color.FromRgb(47, 47, 47), Color.FromRgb(39, 39, 43), Color.FromRgb(31, 35, 39) };
+		static readonly Color[] chainColor2 = new[] { Color.FromRgb(87, 71, 47), Color.FromRgb(67, 55, 35), Color.FromRgb(63, 47, 27) };
+
+		private Color[] MakeFramePalette(Color[] palette, int frame, int animationStyle)
 		{
 			var framePalette = new Color[256];
 			Array.Fill(framePalette, Colors.Black);
@@ -208,17 +213,17 @@ namespace rct2_palette_preview
 			}
 			for (int i = 0; i < 5; i++)
 			{
-				framePalette[i + 230] = palette[(i * 3 - frame + 15) % 15 + 236];
+				framePalette[i + 230] = palette[(i * 3 - frame + 15) % 15 + animationStyle * 15 + 236];
 			}
 			for (int i = 0; i < 5; i++)
 			{
-				framePalette[i + 235] = palette[(i * 3 - frame + 15) % 15 + 281];
+				framePalette[i + 235] = palette[(i * 3 - frame + 15) % 15 + animationStyle * 15 + 281];
 			}
 			for (int i = 0; i < 3; i++)
 			{
-				framePalette[i + 243] = Color.FromRgb(47, 47, 47);
+				framePalette[i + 243] = chainColor1[animationStyle];
 			}
-			framePalette[243 + frame % 3] = Color.FromRgb(87, 71, 47);
+			framePalette[243 + frame % 3] = chainColor2[animationStyle];
 			framePalette[255] = Colors.White;
 			return framePalette;
 		}
@@ -440,6 +445,21 @@ namespace rct2_palette_preview
 				colors[i] = Color.FromRgb(colorData[i * 3 + 2], colorData[i * 3 + 1], colorData[i * 3]);
 			}
 			return colors;
+		}
+
+		private void AnimationStyle_Click(object sender, RoutedEventArgs e)
+		{
+			foreach (var item in ((sender as MenuItem).Parent as MenuItem).Items.Cast<MenuItem>())
+			{
+				item.IsChecked = item == sender;
+			}
+
+			var newAnimationStyle = int.Parse((sender as MenuItem).Tag as string);
+			if (newAnimationStyle == animationStyle)
+				return;
+
+			animationStyle = newAnimationStyle;
+			RenderImage();
 		}
 
 		private void AnimationTimer_Tick(object sender, EventArgs e)

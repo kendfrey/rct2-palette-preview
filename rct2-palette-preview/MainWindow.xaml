@@ -29,6 +29,11 @@
 			<MenuItem Header="_Palette">
 				<MenuItem Header="_Open" Command="{x:Static local:MainWindow.OpenPalette}" InputGestureText="Ctrl+Shift+O" />
 				<MenuItem Header="_Save As JSON" Command="{x:Static local:MainWindow.SavePalette}" InputGestureText="Ctrl+Shift+S" />
+				<MenuItem Header="_Animation Style">
+					<MenuItem Header="_Sunny" Tag="0" IsChecked="True" IsCheckable="True" StaysOpenOnClick="True" Click="AnimationStyle_Click" />
+					<MenuItem Header="_Rain" Tag="1" IsCheckable="True" StaysOpenOnClick="True" Click="AnimationStyle_Click" />
+					<MenuItem Header="_Heavy Rain" Tag="2" IsCheckable="True" StaysOpenOnClick="True" Click="AnimationStyle_Click" />
+				</MenuItem>
 			</MenuItem>
 		</Menu>
 		<Label x:Name="ImageName" DockPanel.Dock="Top" Height="26"></Label>

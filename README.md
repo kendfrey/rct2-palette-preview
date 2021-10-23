@@ -4,6 +4,10 @@ This project is a tool for taking existing RCT2 screenshots and rendering them u
 
 ![screenshot](screenshot.png)
 
+## Requirements
+
+RCT2 Palette Preview requires .NET 5.0. You can download the .NET Desktop Runtime here: https://dotnet.microsoft.com/download/dotnet/5.0/runtime
+
 ## Features
 
 ### 1. Load images
